@@ -2,13 +2,13 @@ import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCGAzimJnO-cvuKT-uOSe79t-NmE0kXAFw",
-  authDomain: "seatsense-959cb.firebaseapp.com",
-  projectId: "seatsense-959cb",
-  storageBucket: "seatsense-959cb.firebasestorage.app",
-  messagingSenderId: "17138481981",
-  appId: "1:17138481981:web:ddb0ec86f996264ed92354",
-  measurementId: "G-0PTGS31CKS"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 const app = initializeApp(firebaseConfig);
