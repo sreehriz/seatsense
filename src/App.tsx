@@ -1,4 +1,3 @@
-import { GoogleGenAI, Type } from "@google/genai";
 import { useState, useEffect, useRef, ChangeEvent } from 'react';
 import Papa from 'papaparse';
 import { useReactToPrint } from 'react-to-print';
@@ -943,6 +942,21 @@ function ExamsTab() {
   const [showAdd, setShowAdd] = useState(false);
   const [newExam, setNewExam] = useState({ name: '', date: '' });
 
+  const getMonthAndDay = (dateStr: string) => {
+    if (!dateStr) return { month: '---', day: '--' };
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      const monthIdx = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      return {
+        month: months[monthIdx] || '---',
+        day: day.toString().padStart(2, '0')
+      };
+    }
+    return { month: '---', day: '--' };
+  };
+
   useEffect(() => {
     fetch('/api/exams').then(res => res.json()).then(setExams);
   }, []);
@@ -979,10 +993,15 @@ function ExamsTab() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {exams.map(exam => (
           <div key={exam.id} className="bg-zinc-900/50 backdrop-blur-xl p-10 rounded-[2.5rem] border border-white/5 flex items-center gap-8 group hover:border-white/20 transition-all">
-            <div className="w-20 h-20 bg-white/5 rounded-3xl flex flex-col items-center justify-center text-white border border-white/10 group-hover:bg-white group-hover:text-black transition-all">
-              <span className="text-[10px] font-black uppercase tracking-widest opacity-60">Feb</span>
-              <span className="text-3xl font-black leading-none">20</span>
-            </div>
+            {(() => {
+              const { month, day } = getMonthAndDay(exam.date);
+              return (
+                <div className="w-20 h-20 bg-white/5 rounded-3xl flex flex-col items-center justify-center text-white border border-white/10 group-hover:bg-white group-hover:text-black transition-all">
+                  <span className="text-[10px] font-black uppercase tracking-widest opacity-60">{month}</span>
+                  <span className="text-3xl font-black leading-none">{day}</span>
+                </div>
+              );
+            })()}
             <div className="flex-1">
               <h3 className="text-2xl font-black tracking-tight mb-2">{exam.name}</h3>
               <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest flex items-center gap-2">
@@ -1073,29 +1092,25 @@ function ArrangementsTab() {
     if (!arrangements.length) return;
     setExplaining(true);
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
       const branches = [...new Set(arrangements.map(a => a.roll_number.substring(5, 7).toUpperCase()))];
-      const prompt = `
-        You are an AI Exam Coordinator. I have generated a seating arrangement for an exam.
-        The strategy used is: Interleaved USN distribution with Snake Pattern filling.
-        
-        Current Stats:
-        - Total Students: ${arrangements.length}
-        - Total Rooms: ${rooms.length}
-        - Branches involved: ${branches.join(', ')}
-        
-        Explain why this arrangement is effective in minimizing proximity of students with similar IDs (same branch/batch) and how it prevents cheating. 
-        Focus on the "Interleaved" and "Snake Pattern" aspects.
-        Keep it concise, professional, and formatted in Markdown.
-      `;
-      const response = await ai.models.generateContent({
-        model: "gemini-3-flash-preview",
-        contents: prompt,
+      const res = await fetch('/api/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          arrangementsCount: arrangements.length,
+          roomsCount: rooms.length,
+          branches
+        })
       });
-      setAiExplanation(response.text || 'No explanation available.');
-    } catch (err) {
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Server error");
+      }
+      const data = await res.json();
+      setAiExplanation(data.text || 'No explanation available.');
+    } catch (err: any) {
       console.error("AI Explanation failed", err);
-      setAiExplanation("Failed to generate AI insights. Please check your connection.");
+      setAiExplanation(err.message || "Failed to generate AI insights. Please check your connection.");
     } finally {
       setExplaining(false);
     }

@@ -3,6 +3,10 @@ import { createServer as createViteServer } from "vite";
 import Database from "better-sqlite3";
 import path from "path";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
+import { GoogleGenAI } from "@google/genai";
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -74,6 +78,37 @@ async function startServer() {
   app.use(express.json());
 
   // API Routes
+  app.post("/api/explain", async (req, res) => {
+    const { arrangementsCount, roomsCount, branches } = req.body;
+    if (!process.env.GEMINI_API_KEY) {
+      return res.status(400).json({ error: "Gemini API key is not configured on the server. Please add it to your environment or .env file." });
+    }
+    try {
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      const prompt = `
+        You are an AI Exam Coordinator. I have generated a seating arrangement for an exam.
+        The strategy used is: Interleaved USN distribution with Snake Pattern filling.
+        
+        Current Stats:
+        - Total Students: ${arrangementsCount}
+        - Total Rooms: ${roomsCount}
+        - Branches involved: ${branches.join(', ')}
+        
+        Explain why this arrangement is effective in minimizing proximity of students with similar IDs (same branch/batch) and how it prevents cheating. 
+        Focus on the "Interleaved" and "Snake Pattern" aspects.
+        Keep it concise, professional, and formatted in Markdown.
+      `;
+      const response = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: prompt,
+      });
+      res.json({ text: response.text });
+    } catch (e: any) {
+      console.error("AI Explanation failed on backend:", e);
+      res.status(500).json({ error: e.message || "Failed to generate AI insights" });
+    }
+  });
+
   app.post("/api/login", (req, res) => {
     const { username, password } = req.body;
     const user = db.prepare("SELECT * FROM users WHERE username = ? AND password = ?").get(username, password) as any;
